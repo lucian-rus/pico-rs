@@ -8,7 +8,6 @@ mod xosc;
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-use cortex_m_semihosting::nr::CLOCK;
 use panic_halt as _;
 
 /* needed to init the boot section. dunno why yet */
