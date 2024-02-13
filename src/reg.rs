@@ -1,11 +1,45 @@
-// GPIO used for LED is 25 on Pico board
+/* while i'd like to not use this, i have to as it provides me a way to declare c-like structs */
+use volatile_register::RW;
 
-// update this as its bs
-pub const SIO_BLOCK_BASE_ADDR: u32 = 0xD0000000;
-pub const SIO_BLOCK_GPIO_OE_OFFSET: u32 = 0x020;
-pub const SIO_BLOCK_GPIO_OUT_OFFSET: u32 = 0x010;
+/* base address of the entire SIO module */
+const BASE_ADDR: u32 = 0xD0000000;
 
-pub const GPIO_BANK_BASE_ADDR: u32 = 0x40014000;
-pub const GPIO_BANK_GPIO25_CTRL_OFFSET: u32 = 0x0CC;
+pub struct SIO {
+    p: &'static mut RegisterBlock,
+}
 
-pub const GPIO_BANK_RESET_ADDR: u32 = 0x4000f000;
+/* this is based off of https://docs.rust-embedded.org/book/peripherals/a-first-attempt.html */
+#[repr(C)]
+struct RegisterBlock {
+    cpuid: RW<u32>,
+    gpio_in: RW<u32>,
+    gpio_hi_in: RW<u32>,
+    pad_01: RW<u32>, // padding so the register gets properly alligned
+    gpio_out: RW<u32>,
+    gpio_out_set: RW<u32>,
+    gpio_out_clr: RW<u32>,
+    gpio_out_xor: RW<u32>,
+    gpio_oe: RW<u32>,
+    gpio_oe_set: RW<u32>,
+    gpio_oe_clr: RW<u32>,
+    gpio_oe_xor: RW<u32>,
+    /* stopping here for now, will extend in the future */
+}
+
+impl SIO {
+    pub fn init() -> SIO {
+        SIO {
+            p: unsafe { &mut *(BASE_ADDR as *mut RegisterBlock) },
+        }
+    }
+
+    /* can config multiple output pins, must OR them */
+    pub fn config_output(&mut self, reg_val: u32) {
+        unsafe { self.p.gpio_oe.write(reg_val) }
+    }
+
+    /* can set multiple pins, must OR them */
+    pub fn set_output(&mut self, reg_val: u32) {
+        unsafe { self.p.gpio_out.write(reg_val) }
+    }
+}
