@@ -2,12 +2,7 @@
 #![no_main]
 
 /* import modules from project */
-mod clock;
-mod gpio;
-mod reset;
-mod sio;
-mod syst;
-mod xosc;
+mod hal;
 
 #[warn(unused_imports)]
 use cortex_m::asm;
@@ -27,11 +22,11 @@ fn main() -> ! {
 
     config_gpio();
 
-    let mut syst_reg = syst::REG::init();
+    let mut syst_reg = hal::syst::REG::init();
     syst_reg.syst_rvr(3_000_000);
     syst_reg.syst_csr(1 << 2 | 1);
 
-    let mut sio_reg = sio::REG::init();
+    let mut sio_reg = hal::sio::REG::init();
     sio_reg.gpio_oe(1 << 25);
     let mut boolean = true;
 
@@ -50,7 +45,7 @@ fn main() -> ! {
 
 fn config_xosc() {
     /* get XOSC instance */
-    let mut xosc_reg = xosc::REG::init();
+    let mut xosc_reg = hal::xosc::REG::init();
 
     /* set XOSC frequency range */
     xosc_reg.ctrl(0xAA0);
@@ -66,7 +61,7 @@ fn config_xosc() {
 
 fn config_clock() {
     /* get CLOCK instance */
-    let mut clock_reg = clock::REG::init();
+    let mut clock_reg = hal::clock::REG::init();
 
     /* select clock source. set REF to XOSC, SYS to REF */
     clock_reg.clk_ref_ctrl(0x02);
@@ -84,12 +79,12 @@ fn config_pll() {}
 
 /* not the best, as this does not return the instances. will re-write */
 fn config_gpio() {
-    let mut reset_reg = reset::REG::init();
+    let mut reset_reg = hal::reset::REG::init();
     reset_reg.reset(1 << 5);
 
     /* wait for reset to be done */
     while(reset_reg.reset_done() & (1 << 5)) == (1 << 5) {}
 
-    let mut io_reg = gpio::REG::init();
+    let mut io_reg = hal::gpio::REG::init();
     io_reg.gpio25_ctrl(0x05);
 }
