@@ -4,7 +4,7 @@ use volatile_register::RW;
 /* base address of the entire SIO module */
 const BASE_ADDR: u32 = 0xD0000000;
 
-pub struct SIO {
+pub struct REG {
     p: &'static mut RegisterBlock,
 }
 
@@ -26,20 +26,18 @@ struct RegisterBlock {
     /* stopping here for now, will extend in the future */
 }
 
-impl SIO {
-    pub fn init() -> SIO {
-        SIO {
+impl REG {
+    pub fn init() -> REG {
+        REG {
             p: unsafe { &mut *(BASE_ADDR as *mut RegisterBlock) },
         }
     }
 
-    /* can config multiple output pins, must OR them */
-    pub fn config_output(&mut self, reg_val: u32) {
+    pub fn gpio_oe(&mut self, reg_val: u32) {
         unsafe { self.p.gpio_oe.write(reg_val) }
     }
 
-    /* can set multiple pins, must OR them */
-    pub fn set_output(&mut self, reg_val: u32) {
+    pub fn gpio_out(&mut self, reg_val: u32) {
         unsafe { self.p.gpio_out.write(reg_val) }
     }
 }

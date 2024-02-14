@@ -3,9 +3,11 @@
 
 /* import modules from project */
 mod clock;
-mod reg;
-mod xosc;
 mod gpio;
+mod reset;
+mod sio;
+mod syst;
+mod xosc;
 
 #[warn(unused_imports)]
 use cortex_m::asm;
@@ -24,78 +26,70 @@ fn main() -> ! {
     config_clock();
 
     config_gpio();
-    
-    /* used for counting using XOSC */
-    let cortex_syst_rvr: *mut u32 = ((0xe0000000 as u32) + 0xe014) as *mut u32;
-    let cortex_syst_csr: *mut u32 = ((0xe0000000 as u32) + 0xe010) as *mut u32;
 
-    unsafe {
-        /* 1 second */
-        cortex_syst_rvr.write_volatile(3_000_000);
-        cortex_syst_csr.write_volatile(1 << 2 | 1);
-    }
+    let mut syst_reg = syst::REG::init();
+    syst_reg.syst_rvr(3_000_000);
+    syst_reg.syst_csr(1 << 2 | 1);
 
-    let mut io_reg = gpio::REG::init();
-    io_reg.config_gpio25_ctrl(0x05);
-
-    let mut sio_reg = reg::SIO::init();
-    sio_reg.config_output(1 << 25);
+    let mut sio_reg = sio::REG::init();
+    sio_reg.gpio_oe(1 << 25);
     let mut boolean = true;
 
     loop {
-        unsafe {
-            if (cortex_syst_csr.read_volatile() & (1 << 16)) == (1 << 16) {
-                if boolean == true {
-                    sio_reg.set_output(1 << 25);
-                    boolean = false;
-                } else {
-                    sio_reg.set_output(0 << 25);
-                    boolean = true;
-                }
+        if (syst_reg.get_syst_csr() & (1 << 16)) == (1 << 16) {
+            if boolean == true {
+                sio_reg.gpio_out(1 << 25);
+                boolean = false;
+            } else {
+                sio_reg.gpio_out(0 << 25);
+                boolean = true;
             }
         }
     }
 }
 
 fn config_xosc() {
-    unsafe {
-        /* set XOSC frequency range */
-        xosc::CTRL.write_volatile(0xAA0);
+    /* get XOSC instance */
+    let mut xosc_reg = xosc::REG::init();
 
-        /* value is default 0xc4 */
-        xosc::STARTUP.write_volatile(0xc4);
-        /* enable XOSC */
-        xosc::CTRL.write_volatile(0xFAB << 12);
+    /* set XOSC frequency range */
+    xosc_reg.ctrl(0xAA0);
 
-        /* wait for XOSC to stabilize */
-        while (xosc::STATUS.read_volatile() & 0x80000000) != 0x80000000 {}
-    }
+    /* value is default 0xc4 */
+    xosc_reg.startup(0xc4);
+    /* enable XOSC */
+    xosc_reg.ctrl(0xFAB << 12);
+
+    /* wait for XOSC to stabilize */
+    while (xosc_reg.status() & 0x80000000) != 0x80000000 {}
 }
 
 fn config_clock() {
-    unsafe {
-        /* select clock source. set REF to XOSC, SYS to REF */
-        clock::REF_CTRL.write_volatile(0x02);
-        clock::SYS_CTRL.write_volatile(0x00);
+    /* get CLOCK instance */
+    let mut clock_reg = clock::REG::init();
 
-        /* do NOT divide. inverted logic */
-        clock::REF_DIV.write_volatile(1 << 8);
+    /* select clock source. set REF to XOSC, SYS to REF */
+    clock_reg.clk_ref_ctrl(0x02);
+    clock_reg.clk_sys_ctrl(0x00);
 
-        clock::PERI_CTRL.write_volatile(1 << 11 | 0x04 << 5);
-    }
+    /* do NOT divide. inverted logic */
+    clock_reg.clk_ref_div(1 << 8);
+
+    clock_reg.clk_peri_ctrl(1 << 11 | 0x04 << 5);
 }
 
 /* avoids warnings until implemented */
 #[warn(dead_code)]
 fn config_pll() {}
 
+/* not the best, as this does not return the instances. will re-write */
 fn config_gpio() {
-    // let gpio_bank_gpio25_ctrl =
-    //     (reg::GPIO_BANK_BASE_ADDR + reg::GPIO_BANK_GPIO25_CTRL_OFFSET) as *mut u32;
+    let mut reset_reg = reset::REG::init();
+    reset_reg.reset(1 << 5);
 
+    /* wait for reset to be done */
+    while(reset_reg.reset_done() & (1 << 5)) == (1 << 5) {}
 
-    unsafe {
-        (gpio::GPIO_BANK_RESET_ADDR as *mut u32).write_volatile(1 << 5);
-        // gpio_bank_gpio25_ctrl.write_volatile(0x05); // write function 5 (SIO) to CTRL register
-    }
+    let mut io_reg = gpio::REG::init();
+    io_reg.gpio25_ctrl(0x05);
 }

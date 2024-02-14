@@ -1,7 +1,7 @@
 /* while i'd like to not use this, i have to as it provides me a way to declare c-like structs */
 use volatile_register::{RO, RW};
 
-/* base address of the entire SIO module */
+/* base address of the entire GPIO module */
 const BASE_ADDR: u32 = 0x40014000;
 
 pub struct REG {
@@ -74,15 +74,7 @@ impl REG {
         }
     }
 
-    /* can config multiple output pins, must OR them */
-    pub fn config_gpio25_ctrl(&mut self, reg_val: u32) {
+    pub fn gpio25_ctrl(&mut self, reg_val: u32) {
         unsafe { self.p.gpio25_ctrl.write(reg_val) }
     }
-
-    /* can set multiple pins, must OR them */
-    pub fn read_gpio25_status(&self) -> u32 {
-        self.p.gpio25_status.read()
-    }
 }
-
-pub const GPIO_BANK_RESET_ADDR: u32 = 0x4000f000;

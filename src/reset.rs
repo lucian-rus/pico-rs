@@ -1,8 +1,9 @@
 /* while i'd like to not use this, i have to as it provides me a way to declare c-like structs */
-use volatile_register::RW;
+use volatile_register::{RW, RO};
 
-/* base address of the entire XOSC module */
-const BASE_ADDR: u32 = 0x40024000;
+/* base address of the entire RESETS module */
+// check why this only works as base <0x4000c000> + set <0x3000>
+const BASE_ADDR: u32 = 0x4000f000;
 
 pub struct REG {
     p: &'static mut RegisterBlock,
@@ -11,11 +12,9 @@ pub struct REG {
 /* this is based off of https://docs.rust-embedded.org/book/peripherals/a-first-attempt.html */
 #[repr(C)]
 struct RegisterBlock {
-    ctrl: RW<u32>,
-    status: RW<u32>,
-    dormant: RW<u32>,
-    startup: RW<u32>,
-    count: RW<u32>,
+    reset: RW<u32>,
+    wdsel: RW<u32>,
+    reset_done: RO<u32>,
     /* stopping here for now, will extend in the future */
 }
 
@@ -26,15 +25,11 @@ impl REG {
         }
     }
 
-    pub fn ctrl(&mut self, reg_val: u32) {
-        unsafe { self.p.ctrl.write(reg_val) }
-    }
-    
-    pub fn startup(&mut self, reg_val: u32) {
-        unsafe { self.p.startup.write(reg_val) }
+    pub fn reset(&mut self, reg_val: u32) {
+        unsafe { self.p.reset.write(reg_val) }
     }
 
-    pub fn status(&self) -> u32 {
-        self.p.status.read()
+    pub fn reset_done(&self) -> u32 {
+        self.p.reset_done.read()
     }
 }
