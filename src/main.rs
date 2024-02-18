@@ -8,6 +8,7 @@ mod hal;
 use cortex_m::asm;
 
 use cortex_m_rt::entry;
+use hal::pll;
 use panic_halt as _;
 
 /* needed to init the boot section. dunno why yet */
@@ -19,11 +20,12 @@ pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 fn main() -> ! {
     config_xosc();
     config_clock();
+    config_pll();
 
     config_gpio();
 
     let mut syst_reg = hal::syst::REG::init();
-    syst_reg.syst_rvr(3_000_000);
+    syst_reg.syst_rvr(12_000_000);
     syst_reg.syst_csr(1 << 2 | 1);
 
     let mut sio_reg = hal::sio::REG::init();
@@ -73,17 +75,35 @@ fn config_clock() {
     clock_reg.clk_peri_ctrl(1 << 11 | 0x04 << 5);
 }
 
-/* avoids warnings until implemented */
-#[warn(dead_code)]
-fn config_pll() {}
+fn config_pll() {
+    /* reset PLL */
+    let mut reset_reg = hal::reset::REG::init();
+    reset_reg.reset(1 << 12);
+
+    /* wait for reset to be done */
+    while (reset_reg.reset_done() & (1 << 12)) == (1 << 12) {}
+
+    let mut pll_reg = hal::pll::REG::init();
+
+    /* set values required to get a 120 MHz clock */
+    pll_reg.cs(1);
+    pll_reg.fbdiv_int(70);
+
+    pll_reg.pwr(0 << 5 | 0);
+    while (pll_reg.get_cs() & 1 << 31) == (1 << 31) {}
+
+    pll_reg.prim(7 << 16 | 1 << 12);
+    pll_reg.pwr(0 << 3);
+}
 
 /* not the best, as this does not return the instances. will re-write */
 fn config_gpio() {
+    /* reset GPIO */
     let mut reset_reg = hal::reset::REG::init();
     reset_reg.reset(1 << 5);
 
     /* wait for reset to be done */
-    while(reset_reg.reset_done() & (1 << 5)) == (1 << 5) {}
+    while (reset_reg.reset_done() & (1 << 5)) == (1 << 5) {}
 
     let mut io_reg = hal::gpio::REG::init();
     io_reg.gpio25_ctrl(0x05);
